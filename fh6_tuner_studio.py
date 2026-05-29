@@ -75,7 +75,7 @@ footer                        { display: none !important; }
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.7rem;
+    font-size: 1rem;
     font-weight: 600;
     letter-spacing: 0.28em;
     color: #4a576b;
