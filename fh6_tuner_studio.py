@@ -103,7 +103,7 @@ footer                        { display: none !important; }
     font-weight: 700;
     letter-spacing: 0.38em;
     text-transform: uppercase;
-    color: #c9222c;
+    color: #FFFFFF;
     margin: 1.8rem 0 0.8rem;
 }
 .sec-label::before {
