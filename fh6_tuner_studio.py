@@ -295,7 +295,7 @@ footer                        { display: none !important; }
     align-items: center;
     gap: 10px;
     font-family: 'Rajdhani', sans-serif;
-    font-size: 1.0rem;
+    font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.38em;
     text-transform: uppercase;
