@@ -1,14 +1,3 @@
-Ah, l'écran noir de la mort classique sur Streamlit Cloud.
-
-Ce que montre votre capture d'écran, c'est que votre application a "crashé" avant même de pouvoir dessiner le moindre pixel. En Python, une simple erreur d'indentation (un espace en trop ou en moins au moment où vous avez collé la Partie 3) provoque une erreur fatale. Puisque le serveur Streamlit lit le fichier de haut en bas, s'il trouve une erreur de syntaxe, il s'arrête net et affiche une page vide.
-
-On arrête les puzzles en plusieurs parties qui créent ces erreurs.
-
-Voici le **code intégral et définitif, en un seul bloc**. Il contient l'interface complète, le **thème Cyan** pour reposer vos yeux (comme nous l'avions évoqué), l'intégralité des 9 modules mathématiques non compressés, et l'affichage des onglets parfaitement aligné.
-
-Sélectionnez tout le code de votre fichier `fh6_tuner_studio.py`, effacez tout, et collez ceci à la place. Une fois poussé sur votre GitHub, votre page web s'affichera correctement.
-
-```python
 """
 ╔══════════════════════════════════════════════════════╗
 ║        FH6 TUNER STUDIO — Streamlit App              ║
