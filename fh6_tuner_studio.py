@@ -755,5 +755,3 @@ if generate:
             c2.metric("Arrière (Décélération)", f"{diff_resultats.get('ar_dec', 0)}%")
         if motricite == "AWD":
             c3.metric("Centre", f"{diff_resultats.get('centre', 0)}% vers l'arrière")
-
-```
