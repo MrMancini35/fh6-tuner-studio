@@ -286,14 +286,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .sec-label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     font-family: 'Rajdhani', sans-serif;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.30em;
     text-transform: uppercase;
     color: #0ea5e9;
-    margin: 1.8rem 0 0.8rem;
+    margin: 1.8rem 0 0.9rem;
 }
 .sec-label::before {
     content: '';
