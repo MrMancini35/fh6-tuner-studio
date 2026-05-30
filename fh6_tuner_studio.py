@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 
 # =================================================================
 # 1. MOTEUR DE CALCUL
@@ -256,7 +257,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .fh6-tagline {
     font-size: 0.72rem;
     font-weight: 300;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.48em;
     color: #0ea5e9;
     text-transform: uppercase;
     margin: 5px 0 0;
@@ -267,7 +268,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     gap: 8px;
     font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     color: #4a576b;
     text-transform: uppercase;
 }
@@ -286,14 +287,14 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .sec-label {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 700;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.38em;
     text-transform: uppercase;
     color: #0ea5e9;
-    margin: 1.8rem 0 0.9rem;
+    margin: 1.8rem 0 0.8rem;
 }
 .sec-label::before {
     content: '';
@@ -313,7 +314,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .sub-lbl {
     font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.3em;
     text-transform: uppercase;
     color: #3a4760;
     margin-bottom: 0.55rem;
@@ -382,7 +383,7 @@ div[data-testid="stRadio"] label span {
     color: #ffffff !important;
     border: none !important;
     font-size: 1.05rem !important;
-    letter-spacing: 0.22em !important;
+    letter-spacing: 0.32em !important;
     min-height: 58px !important;
     box-shadow: 0 4px 24px rgba(14,165,233,.35) !important;
 }
@@ -425,7 +426,7 @@ div[data-testid="stRadio"] label span {
 .result-key {
     font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
     color: #3a4760;
     line-height: 1.4;
@@ -450,7 +451,7 @@ div[data-testid="stRadio"] label span {
     gap: 7px;
     font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
     color: #0ea5e9;
     margin-top: 4px;
@@ -530,13 +531,13 @@ with g2: suspension = st.selectbox("Type de suspension", ["Street", "Sport", "Ci
 st.markdown('<div class="sec-label">02 &nbsp;— &nbsp;Comportement souhaité</div>', unsafe_allow_html=True)
 b1, b2, b3 = st.columns(3)
 with b1:
-    if st.button("🔺 SOUS-VIRAGE", key="btn_sv", use_container_width=True): st.session_state.comportement = "Sous-virage"; st.rerun()
+    if st.button("↰ SOUS-VIRAGE", key="btn_sv", use_container_width=True): st.session_state.comportement = "Sous-virage"; st.rerun()
 with b2:
     if st.button("⚖ NEUTRE", key="btn_neu", use_container_width=True): st.session_state.comportement = "Neutre"; st.rerun()
 with b3:
-    if st.button("🔻SURVIRAGE", key="btn_sur", use_container_width=True): st.session_state.comportement = "Survirage"; st.rerun()
+    if st.button("↱ SURVIRAGE", key="btn_sur", use_container_width=True): st.session_state.comportement = "Survirage"; st.rerun()
 
-_icons = {"Sous-virage": "🔺", "Neutre": "⚖️", "Survirage": "🔻"}
+_icons = {"Sous-virage": "🔻", "Neutre": "⚖️", "Survirage": "🔺"}
 st.markdown(f'<p class="sel-chip">Sélectionné : {_icons[st.session_state.comportement]} &nbsp;{st.session_state.comportement}</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="sec-label">03 &nbsp;— &nbsp;Objectif du réglage</div>', unsafe_allow_html=True)
@@ -559,6 +560,27 @@ with gen_mid:
     st.markdown('<div class="generate-zone">', unsafe_allow_html=True)
     generate = st.button("⚙ GÉNÉRER LE RÉGLAGE", key="btn_gen", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
+    
+    if generate:
+        # Notification superposée à l'écran (toujours visible)
+        st.toast("Calcul terminé. Scrollez vers le bas pour les résultats.", icon="👇")
+        
+        # Indicateur CSS animé collé au bouton
+        st.markdown(
+            """
+            <div style="text-align: center; color: #0ea5e9; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.2em; margin-top: -10px; padding-bottom: 10px; animation: bounce 2s infinite;">
+                ↓ SCROLLEZ VERS LE BAS ↓
+            </div>
+            <style>
+            @keyframes bounce {
+                0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                40% { transform: translateY(4px); }
+                60% { transform: translateY(2px); }
+            }
+            </style>
+            """, 
+            unsafe_allow_html=True
+        )
 
 # =================================================================
 # 4. EXÉCUTION & RÉSULTATS
@@ -599,7 +621,7 @@ if generate:
     freins_bal, freins_pres = calculer_freins(poids_avant, math_comp, objectif, gomme)
     pont, rapports_boite = calculer_boite(objectif, motricite)
 
-    st.markdown('<div class="sec-label">05 &nbsp;— &nbsp;Réglage Optimal</div>', unsafe_allow_html=True)
+    st.markdown('<div id="zone-resultats" class="sec-label">05 &nbsp;— &nbsp;Réglage Optimal</div>', unsafe_allow_html=True)
     onglets = st.tabs(["PNEUS", "BOÎTE", "GÉOMÉTRIE", "BARRES ARB", "RESSORTS", "AMORTISSEURS", "AÉRO", "FREINS", "DIFFÉRENTIEL"])
 
     with onglets[0]:
@@ -656,3 +678,5 @@ if generate:
             c2.metric("Arrière (Décélération)", f"{diff_resultats.get('ar_dec', 0)}%")
         if motricite == "AWD":
             c3.metric("Centre", f"{diff_resultats.get('centre', 0)}% vers l'arrière")
+
+    
