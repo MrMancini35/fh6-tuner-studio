@@ -1,19 +1,18 @@
-# =================================================================
-# 1. MOTEUR DE CALCUL (FONCTIONS DÉVELOPPÉES ET PONDÉRÉES)
-# =================================================================
+import streamlit as st
 
+# =================================================================
+# 1. MOTEUR DE CALCUL
+# =================================================================
 def calculer_arb(repartition_avant, min_av, max_av, min_ar, max_ar, transmission, biais_comportement, pos_moteur, suspension):
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
     base_av = (max_av - min_av) * ratio_av + min_av
     base_ar = (max_ar - min_ar) * ratio_ar + min_ar
     
-    # Transmission
     if transmission == "AWD": base_av *= 0.55; base_ar *= 1.40
     elif transmission == "RWD": base_av *= 1.10; base_ar *= 0.90
     elif transmission == "FWD": base_av *= 0.60; base_ar *= 1.50
         
-    # Biais et Position Moteur (Transfert de charge latéral)
     biais_mult_av, biais_mult_ar = 1.0, 1.0
     if biais_comportement == "survireur": biais_mult_av *= 1.20; biais_mult_ar *= 0.80
     elif biais_comportement == "sous-vireur": biais_mult_av *= 0.80; biais_mult_ar *= 1.20
@@ -21,7 +20,6 @@ def calculer_arb(repartition_avant, min_av, max_av, min_ar, max_ar, transmission
     if pos_moteur == "Avant": biais_mult_av *= 1.05; biais_mult_ar *= 0.95
     elif pos_moteur == "Arrière": biais_mult_av *= 0.95; biais_mult_ar *= 1.05
     
-    # Suspension (Rigidité structurelle)
     mult_susp = {"Street": 1.0, "Sport": 1.15, "Circuit": 1.35, "Rallye": 0.60, "Drift": 1.20}.get(suspension, 1.0)
     
     final_av = base_av * biais_mult_av * mult_susp
@@ -35,28 +33,23 @@ def calculer_ressorts(repartition_avant, min_av, max_av, min_ar, max_ar, biais_c
     base_av = (max_av - min_av) * ratio_av + min_av
     base_ar = (max_ar - min_ar) * ratio_ar + min_ar
     
-    # Aérodynamique
     if appui_aero == "fort" or objectif == "Circuit":
         base_av *= 1.20; base_ar *= 1.20
         
-    # Architecture Moteur (Poids vertical et inertie)
-    if "Ligne" in type_moteur: base_av *= 1.10 # Tangage important
+    if "Ligne" in type_moteur: base_av *= 1.10
     elif type_moteur in ["V8", "V10", "V12", "W12", "W16", "Électrique"]: 
-        base_av *= 1.15; base_ar *= 1.15 # Masses lourdes
+        base_av *= 1.15; base_ar *= 1.15
     elif type_moteur == "Rotatif": 
-        base_av *= 0.90 # Train avant très léger
+        base_av *= 0.90
 
-    # Biais directionnel
     if biais_comportement == "survireur": base_av *= 1.15; base_ar *= 0.85
     elif biais_comportement == "sous-vireur": base_av *= 0.85; base_ar *= 1.15
         
-    # Objectif & Suspension (Débattement vs Rigidité)
     mult_obj = {"Circuit": 1.4, "Rallye": 0.5, "Tout terrain": 0.4, "Drift": 1.2, "Drag": 1.1, "Touge": 1.1}.get(objectif, 1.0)
     
     final_av = base_av * mult_obj
     final_ar = base_ar * mult_obj
     
-    # Spécificité Drag (Transfert de masse arrière maximum)
     if objectif == "Drag":
         final_av *= 1.30; final_ar *= 0.70
 
@@ -66,7 +59,6 @@ def calculer_pression_pneus(repartition_avant, transmission, gomme, objectif, pr
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
     
-    # Pression de base relative à la gomme
     mod_gomme = {"Semi slick": -0.1, "Slick": -0.2, "Rallye": -0.3, "Tout terrain": -0.3, "Neige": -0.35}.get(gomme, 0.0)
     p_base = pression_cible + mod_gomme
     
@@ -77,13 +69,12 @@ def calculer_pression_pneus(repartition_avant, transmission, gomme, objectif, pr
     elif transmission == "FWD": pression_av -= 0.15; pression_ar += 0.05
     elif transmission == "AWD": pression_av -= 0.05; pression_ar -= 0.05
     
-    # Overrides d'objectifs extrêmes
     if objectif == "Drift":
         pression_av = 2.1
-        pression_ar = 2.5 # Sursaturation pour glisse
+        pression_ar = 2.5
     elif objectif == "Drag":
-        pression_av = 2.8 # Réduction friction
-        pression_ar = 1.5 # Empreinte max (si RWD/AWD)
+        pression_av = 2.8
+        pression_ar = 1.5
         if transmission == "FWD": 
             pression_av = 1.5; pression_ar = 2.8
             
@@ -91,17 +82,14 @@ def calculer_pression_pneus(repartition_avant, transmission, gomme, objectif, pr
 
 def calculer_differentiel(transmission, biais_comportement, type_moteur, objectif):
     diff = {}
-    # Base par transmission
     if transmission == "RWD": diff = {'ar_acc': 65, 'ar_dec': 25}
     elif transmission == "FWD": diff = {'av_acc': 70, 'av_dec': 10}
     elif transmission == "AWD": diff = {'av_acc': 30, 'av_dec': 5, 'ar_acc': 75, 'ar_dec': 20, 'centre': 65}
     
-    # Ajustement Moteur (Couple immédiat = besoin de verrouillage)
     if type_moteur == "Électrique":
         if "ar_acc" in diff: diff['ar_acc'] = min(diff['ar_acc'] + 15, 100)
         if "av_acc" in diff: diff['av_acc'] = min(diff['av_acc'] + 15, 100)
 
-    # Objectif
     if objectif == "Drift" and transmission in ["RWD", "AWD"]:
         diff['ar_acc'] = 100; diff['ar_dec'] = 100
         if transmission == "AWD": diff['centre'] = 90
@@ -111,7 +99,6 @@ def calculer_differentiel(transmission, biais_comportement, type_moteur, objecti
     elif objectif == "Drag" and transmission in ["RWD", "AWD"]:
         diff['ar_acc'] = 100; diff['ar_dec'] = 0
         
-    # Biais comportement (si objectif non extrême)
     if objectif not in ["Drift", "Drag"]:
         if biais_comportement == "survireur":
             if "ar_acc" in diff: diff['ar_acc'] -= 10
@@ -124,14 +111,11 @@ def calculer_differentiel(transmission, biais_comportement, type_moteur, objecti
     return diff
 
 def calculer_geometrie(suspension, gomme, objectif):
-    # Base
     geo = {'cam_av': -1.5, 'cam_ar': -1.0, 'toe_av': 0.0, 'toe_ar': 0.0, 'caster': 5.5}
     
-    # Gomme (Plus de grip tolère plus de carrossage)
     if gomme in ["Slick", "Semi slick"]: 
         geo['cam_av'] -= 0.5; geo['cam_ar'] -= 0.5
         
-    # Objectif
     if objectif == "Circuit":
         geo['toe_av'] = 0.1; geo['toe_ar'] = -0.1
     elif objectif in ["Rallye", "Tout terrain"]:
@@ -143,7 +127,7 @@ def calculer_geometrie(suspension, gomme, objectif):
         geo['caster'] = 7.0
     elif objectif == "Drag":
         geo['cam_av'] = 0.0; geo['cam_ar'] = 0.0
-        geo['caster'] = 7.0 # Stabilité en ligne droite
+        geo['caster'] = 7.0
         
     for cle, valeur in geo.items(): geo[cle] = round(valeur, 1)
     return geo
@@ -156,18 +140,15 @@ def calculer_amortisseurs(repartition_avant, min_amort, max_amort, biais_comport
     det_av = base * (ratio_av * 2) + min_amort
     det_ar = base * (ratio_ar * 2) + min_amort
     
-    # Objectif
     mult_obj = {"Circuit": 1.3, "Rallye": 0.4, "Tout terrain": 0.3, "Drift": 1.1}.get(objectif, 1.0)
     det_av *= mult_obj; det_ar *= mult_obj
     
-    # Moteur
     if type_moteur in ["V8", "V10", "V12", "W12", "W16", "Électrique"]:
         det_av *= 1.15; det_ar *= 1.15
         
     comp_av = det_av * 0.60
     comp_ar = det_ar * 0.60
     
-    # Drift : Détente avant très dure pour transfert, compression arrière dure
     if objectif == "Drift":
         det_av = max_amort * 0.90
         comp_ar = max_amort * 0.85
@@ -212,7 +193,7 @@ def calculer_freins(repartition_avant, biais_comportement, objectif, gomme):
         balance -= 3.0 
         
     if objectif == "Drift":
-        balance = 45.0 # Puissance sur l'arrière pour initier
+        balance = 45.0
         pression = 120
         
     return round(max(0.0, min(balance, 100.0)), 0), round(max(0, min(pression, 200)), 0)
@@ -229,7 +210,6 @@ def calculer_boite(objectif, transmission):
 # =================================================================
 # 2. CONFIGURATION DE LA PAGE & DESIGN (THÈME CYAN)
 # =================================================================
-
 st.set_page_config(
     page_title="FH6 Tuner Studio",
     page_icon="🏎️",
@@ -240,7 +220,7 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,800;1,400&display=swap');
+@import url('[https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,800;1,400&display=swap](https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,800;1,400&display=swap)');
 
 html, body, [data-testid="stAppViewContainer"], .stApp {
     background-color: #07090f !important;
@@ -601,7 +581,6 @@ if generate:
         """, unsafe_allow_html=True
     )
 
-    # Traduction UI -> Math
     map_comportement = {"Sous-virage": "sous-vireur", "Neutre": "neutre", "Survirage": "survireur"}
     math_comp = map_comportement.get(st.session_state.comportement, "neutre")
     math_aero = "fort" if objectif == "Circuit" else "standard"
@@ -610,7 +589,6 @@ if generate:
     ressort_min, ressort_max = 20.0, 200.0
     amort_min, amort_max = 1.0, 20.0
 
-    # Lancement des calculs
     arb_av, arb_ar = calculer_arb(poids_avant, arb_min, arb_max, arb_min, arb_max, motricite, math_comp, position_moteur, suspension)
     res_av, res_ar = calculer_ressorts(poids_avant, ressort_min, ressort_max, ressort_min, ressort_max, math_comp, math_aero, position_moteur, type_moteur, suspension, objectif)
     pneus_av, pneus_ar = calculer_pression_pneus(poids_avant, motricite, gomme, objectif)
@@ -621,7 +599,6 @@ if generate:
     freins_bal, freins_pres = calculer_freins(poids_avant, math_comp, objectif, gomme)
     pont, rapports_boite = calculer_boite(objectif, motricite)
 
-    # Affichage des onglets
     st.markdown('<div class="sec-label">05 &nbsp;— &nbsp;Réglage Optimal</div>', unsafe_allow_html=True)
     onglets = st.tabs(["PNEUS", "BOÎTE", "GÉOMÉTRIE", "BARRES ARB", "RESSORTS", "AMORTISSEURS", "AÉRO", "FREINS", "DIFFÉRENTIEL"])
 
