@@ -256,7 +256,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .fh6-tagline {
     font-size: 0.72rem;
     font-weight: 300;
-    letter-spacing: 0.48em;
+    letter-spacing: 0.22em;
     color: #0ea5e9;
     text-transform: uppercase;
     margin: 5px 0 0;
@@ -267,7 +267,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     gap: 8px;
     font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.28em;
+    letter-spacing: 0.22em;
     color: #4a576b;
     text-transform: uppercase;
 }
@@ -290,7 +290,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     font-family: 'Rajdhani', sans-serif;
     font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.30em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #0ea5e9;
     margin: 1.8rem 0 0.9rem;
@@ -313,7 +313,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
 .sub-lbl {
     font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.3em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #3a4760;
     margin-bottom: 0.55rem;
@@ -382,7 +382,7 @@ div[data-testid="stRadio"] label span {
     color: #ffffff !important;
     border: none !important;
     font-size: 1.05rem !important;
-    letter-spacing: 0.32em !important;
+    letter-spacing: 0.22em !important;
     min-height: 58px !important;
     box-shadow: 0 4px 24px rgba(14,165,233,.35) !important;
 }
@@ -425,7 +425,7 @@ div[data-testid="stRadio"] label span {
 .result-key {
     font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.25em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #3a4760;
     line-height: 1.4;
@@ -450,7 +450,7 @@ div[data-testid="stRadio"] label span {
     gap: 7px;
     font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.28em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #0ea5e9;
     margin-top: 4px;
