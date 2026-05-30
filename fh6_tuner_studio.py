@@ -530,13 +530,13 @@ with g2: suspension = st.selectbox("Type de suspension", ["Street", "Sport", "Ci
 st.markdown('<div class="sec-label">02 &nbsp;— &nbsp;Comportement souhaité</div>', unsafe_allow_html=True)
 b1, b2, b3 = st.columns(3)
 with b1:
-    if st.button("↰ SOUS-VIRAGE", key="btn_sv", use_container_width=True): st.session_state.comportement = "Sous-virage"; st.rerun()
+    if st.button("🔺 SOUS-VIRAGE", key="btn_sv", use_container_width=True): st.session_state.comportement = "Sous-virage"; st.rerun()
 with b2:
     if st.button("⚖ NEUTRE", key="btn_neu", use_container_width=True): st.session_state.comportement = "Neutre"; st.rerun()
 with b3:
-    if st.button("↱ SURVIRAGE", key="btn_sur", use_container_width=True): st.session_state.comportement = "Survirage"; st.rerun()
+    if st.button("🔻SURVIRAGE", key="btn_sur", use_container_width=True): st.session_state.comportement = "Survirage"; st.rerun()
 
-_icons = {"Sous-virage": "🔻", "Neutre": "⚖️", "Survirage": "🔺"}
+_icons = {"Sous-virage": "🔺", "Neutre": "⚖️", "Survirage": "🔻"}
 st.markdown(f'<p class="sel-chip">Sélectionné : {_icons[st.session_state.comportement]} &nbsp;{st.session_state.comportement}</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="sec-label">03 &nbsp;— &nbsp;Objectif du réglage</div>', unsafe_allow_html=True)
