@@ -288,9 +288,9 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     align-items: center;
     gap: 10px;
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.38em;
+    letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #0ea5e9;
     margin: 1.8rem 0 0.8rem;
