@@ -1,215 +1,235 @@
-"""
-╔══════════════════════════════════════════════════════╗
-║        FH6 TUNER STUDIO — Streamlit App              ║
-║        Dark motorsport theme (Cyan) | Layout wide    ║
-╚══════════════════════════════════════════════════════╝
-"""
-
-import streamlit as st
-
 # =================================================================
-# 1. MOTEUR DE CALCUL (FONCTIONS DÉVELOPPÉES)
+# 1. MOTEUR DE CALCUL (FONCTIONS DÉVELOPPÉES ET PONDÉRÉES)
 # =================================================================
 
-def calculer_arb(repartition_avant, min_av, max_av, min_ar, max_ar, transmission="AWD", biais_comportement="neutre"):
+def calculer_arb(repartition_avant, min_av, max_av, min_ar, max_ar, transmission, biais_comportement, pos_moteur, suspension):
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
     base_av = (max_av - min_av) * ratio_av + min_av
     base_ar = (max_ar - min_ar) * ratio_ar + min_ar
     
-    if transmission == "AWD":
-        base_av *= 0.55
-        base_ar *= 1.40
-    elif transmission == "RWD":
-        base_av *= 1.10
-        base_ar *= 0.90
-    elif transmission == "FWD":
-        base_av *= 0.60
-        base_ar *= 1.50
+    # Transmission
+    if transmission == "AWD": base_av *= 0.55; base_ar *= 1.40
+    elif transmission == "RWD": base_av *= 1.10; base_ar *= 0.90
+    elif transmission == "FWD": base_av *= 0.60; base_ar *= 1.50
         
-    if biais_comportement == "survireur": 
-        base_av *= 1.20
-        base_ar *= 0.80
-    elif biais_comportement == "sous-vireur":
-        base_av *= 0.80
-        base_ar *= 1.20
-        
-    final_av = max(min_av, min(base_av, max_av))
-    final_ar = max(min_ar, min(base_ar, max_ar))
-    return round(final_av, 2), round(final_ar, 2)
+    # Biais et Position Moteur (Transfert de charge latéral)
+    biais_mult_av, biais_mult_ar = 1.0, 1.0
+    if biais_comportement == "survireur": biais_mult_av *= 1.20; biais_mult_ar *= 0.80
+    elif biais_comportement == "sous-vireur": biais_mult_av *= 0.80; biais_mult_ar *= 1.20
+    
+    if pos_moteur == "Avant": biais_mult_av *= 1.05; biais_mult_ar *= 0.95
+    elif pos_moteur == "Arrière": biais_mult_av *= 0.95; biais_mult_ar *= 1.05
+    
+    # Suspension (Rigidité structurelle)
+    mult_susp = {"Street": 1.0, "Sport": 1.15, "Circuit": 1.35, "Rallye": 0.60, "Drift": 1.20}.get(suspension, 1.0)
+    
+    final_av = base_av * biais_mult_av * mult_susp
+    final_ar = base_ar * biais_mult_ar * mult_susp
+    
+    return round(max(min_av, min(final_av, max_av)), 2), round(max(min_ar, min(final_ar, max_ar)), 2)
 
-def calculer_ressorts(repartition_avant, min_av, max_av, min_ar, max_ar, biais_comportement="neutre", appui_aero="standard"):
+def calculer_ressorts(repartition_avant, min_av, max_av, min_ar, max_ar, biais_comportement, appui_aero, pos_moteur, type_moteur, suspension, objectif):
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
     base_av = (max_av - min_av) * ratio_av + min_av
     base_ar = (max_ar - min_ar) * ratio_ar + min_ar
     
-    if appui_aero == "fort":
-        base_av *= 1.20
-        base_ar *= 1.20
+    # Aérodynamique
+    if appui_aero == "fort" or objectif == "Circuit":
+        base_av *= 1.20; base_ar *= 1.20
         
-    if biais_comportement == "survireur": 
-        base_av *= 1.15
-        base_ar *= 0.85
-    elif biais_comportement == "sous-vireur":
-        base_av *= 0.85
-        base_ar *= 1.15
-        
-    final_av = max(min_av, min(base_av, max_av))
-    final_ar = max(min_ar, min(base_ar, max_ar))
-    return round(final_av, 2), round(final_ar, 2)
+    # Architecture Moteur (Poids vertical et inertie)
+    if "Ligne" in type_moteur: base_av *= 1.10 # Tangage important
+    elif type_moteur in ["V8", "V10", "V12", "W12", "W16", "Électrique"]: 
+        base_av *= 1.15; base_ar *= 1.15 # Masses lourdes
+    elif type_moteur == "Rotatif": 
+        base_av *= 0.90 # Train avant très léger
 
-def calculer_pression_pneus(repartition_avant, transmission="AWD", pression_cible=2.1, min_p=1.0, max_p=3.8):
+    # Biais directionnel
+    if biais_comportement == "survireur": base_av *= 1.15; base_ar *= 0.85
+    elif biais_comportement == "sous-vireur": base_av *= 0.85; base_ar *= 1.15
+        
+    # Objectif & Suspension (Débattement vs Rigidité)
+    mult_obj = {"Circuit": 1.4, "Rallye": 0.5, "Tout terrain": 0.4, "Drift": 1.2, "Drag": 1.1, "Touge": 1.1}.get(objectif, 1.0)
+    
+    final_av = base_av * mult_obj
+    final_ar = base_ar * mult_obj
+    
+    # Spécificité Drag (Transfert de masse arrière maximum)
+    if objectif == "Drag":
+        final_av *= 1.30; final_ar *= 0.70
+
+    return round(max(min_av, min(final_av, max_av)), 2), round(max(min_ar, min(final_ar, max_ar)), 2)
+
+def calculer_pression_pneus(repartition_avant, transmission, gomme, objectif, pression_cible=2.1, min_p=1.0, max_p=3.8):
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
-    pression_av = pression_cible + ((0.50 - ratio_av) * 0.5)
-    pression_ar = pression_cible + ((0.50 - ratio_ar) * 0.5)
     
-    if transmission == "RWD":
-        pression_ar -= 0.10
-    elif transmission == "FWD":
-        pression_av -= 0.15
-        pression_ar += 0.05
-    elif transmission == "AWD":
-        pression_av -= 0.05
-        pression_ar -= 0.05
-        
-    final_av = max(min_p, min(pression_av, max_p))
-    final_ar = max(min_p, min(pression_ar, max_p))
-    return round(final_av, 2), round(final_ar, 2)
-
-def calculer_differentiel(transmission, biais_comportement="neutre"):
-    diff = {}
-    if transmission == "RWD":
-        diff = {'ar_acc': 65, 'ar_dec': 25}
-    elif transmission == "FWD":
-        diff = {'av_acc': 70, 'av_dec': 10}
-    elif transmission == "AWD":
-        diff = {'av_acc': 30, 'av_dec': 5, 'ar_acc': 75, 'ar_dec': 20, 'centre': 65}
-        
-    if biais_comportement == "survireur":
-        if "ar_acc" in diff: diff['ar_acc'] -= 10
-        if "ar_dec" in diff: diff['ar_dec'] += 5
-        if transmission == "AWD": diff['centre'] -= 5
-    elif biais_comportement == "sous-vireur":
-        if "ar_acc" in diff: diff['ar_acc'] += 10
-        if transmission == "AWD": diff['centre'] += 5
+    # Pression de base relative à la gomme
+    mod_gomme = {"Semi slick": -0.1, "Slick": -0.2, "Rallye": -0.3, "Tout terrain": -0.3, "Neige": -0.35}.get(gomme, 0.0)
+    p_base = pression_cible + mod_gomme
+    
+    pression_av = p_base + ((0.50 - ratio_av) * 0.5)
+    pression_ar = p_base + ((0.50 - ratio_ar) * 0.5)
+    
+    if transmission == "RWD": pression_ar -= 0.10
+    elif transmission == "FWD": pression_av -= 0.15; pression_ar += 0.05
+    elif transmission == "AWD": pression_av -= 0.05; pression_ar -= 0.05
+    
+    # Overrides d'objectifs extrêmes
+    if objectif == "Drift":
+        pression_av = 2.1
+        pression_ar = 2.5 # Sursaturation pour glisse
+    elif objectif == "Drag":
+        pression_av = 2.8 # Réduction friction
+        pression_ar = 1.5 # Empreinte max (si RWD/AWD)
+        if transmission == "FWD": 
+            pression_av = 1.5; pression_ar = 2.8
             
-    for cle, valeur in diff.items():
-        diff[cle] = max(0, min(valeur, 100))
+    return round(max(min_p, min(pression_av, max_p)), 2), round(max(min_p, min(pression_ar, max_p)), 2)
+
+def calculer_differentiel(transmission, biais_comportement, type_moteur, objectif):
+    diff = {}
+    # Base par transmission
+    if transmission == "RWD": diff = {'ar_acc': 65, 'ar_dec': 25}
+    elif transmission == "FWD": diff = {'av_acc': 70, 'av_dec': 10}
+    elif transmission == "AWD": diff = {'av_acc': 30, 'av_dec': 5, 'ar_acc': 75, 'ar_dec': 20, 'centre': 65}
+    
+    # Ajustement Moteur (Couple immédiat = besoin de verrouillage)
+    if type_moteur == "Électrique":
+        if "ar_acc" in diff: diff['ar_acc'] = min(diff['ar_acc'] + 15, 100)
+        if "av_acc" in diff: diff['av_acc'] = min(diff['av_acc'] + 15, 100)
+
+    # Objectif
+    if objectif == "Drift" and transmission in ["RWD", "AWD"]:
+        diff['ar_acc'] = 100; diff['ar_dec'] = 100
+        if transmission == "AWD": diff['centre'] = 90
+    elif objectif in ["Rallye", "Tout terrain"]:
+        if "ar_acc" in diff: diff['ar_acc'] *= 0.8
+        if "av_acc" in diff: diff['av_acc'] *= 0.8
+    elif objectif == "Drag" and transmission in ["RWD", "AWD"]:
+        diff['ar_acc'] = 100; diff['ar_dec'] = 0
+        
+    # Biais comportement (si objectif non extrême)
+    if objectif not in ["Drift", "Drag"]:
+        if biais_comportement == "survireur":
+            if "ar_acc" in diff: diff['ar_acc'] -= 10
+            if transmission == "AWD": diff['centre'] -= 5
+        elif biais_comportement == "sous-vireur":
+            if "ar_acc" in diff: diff['ar_acc'] += 10
+            if transmission == "AWD": diff['centre'] += 5
+            
+    for cle, valeur in diff.items(): diff[cle] = int(max(0, min(valeur, 100)))
     return diff
 
-def calculer_geometrie(type_suspension="course", biais_comportement="neutre"):
-    geo = {}
-    if type_suspension == "course":
-        geo = {'cam_av': -1.5, 'cam_ar': -1.0, 'toe_av': 0.1, 'toe_ar': -0.1, 'caster': 5.5}
-    elif type_suspension == "rallye":
-        geo = {'cam_av': -0.5, 'cam_ar': -0.5, 'toe_av': 0.0, 'toe_ar': 0.0, 'caster': 5.0}
-    elif type_suspension == "drift":
-        geo = {'cam_av': -5.0, 'cam_ar': -0.5, 'toe_av': 0.5, 'toe_ar': 0.0, 'caster': 7.0}
-    else:
-        geo = {'cam_av': -1.0, 'cam_ar': -1.0, 'toe_av': 0.0, 'toe_ar': 0.0, 'caster': 5.0}
+def calculer_geometrie(suspension, gomme, objectif):
+    # Base
+    geo = {'cam_av': -1.5, 'cam_ar': -1.0, 'toe_av': 0.0, 'toe_ar': 0.0, 'caster': 5.5}
+    
+    # Gomme (Plus de grip tolère plus de carrossage)
+    if gomme in ["Slick", "Semi slick"]: 
+        geo['cam_av'] -= 0.5; geo['cam_ar'] -= 0.5
         
-    if biais_comportement == "survireur":
-        geo['toe_ar'] -= 0.1 
-    elif biais_comportement == "sous-vireur":
-        geo['toe_av'] += 0.1 
+    # Objectif
+    if objectif == "Circuit":
+        geo['toe_av'] = 0.1; geo['toe_ar'] = -0.1
+    elif objectif in ["Rallye", "Tout terrain"]:
+        geo['cam_av'] = -0.5; geo['cam_ar'] = -0.5
+        geo['caster'] = 5.0
+    elif objectif == "Drift":
+        geo['cam_av'] = -5.0; geo['cam_ar'] = -0.5
+        geo['toe_av'] = 0.5; geo['toe_ar'] = 0.0
+        geo['caster'] = 7.0
+    elif objectif == "Drag":
+        geo['cam_av'] = 0.0; geo['cam_ar'] = 0.0
+        geo['caster'] = 7.0 # Stabilité en ligne droite
         
-    for cle, valeur in geo.items():
-        geo[cle] = round(valeur, 1)
+    for cle, valeur in geo.items(): geo[cle] = round(valeur, 1)
     return geo
 
-def calculer_amortisseurs(repartition_avant, min_amort, max_amort, biais_comportement="neutre"):
+def calculer_amortisseurs(repartition_avant, min_amort, max_amort, biais_comportement, type_moteur, objectif):
     ratio_av = repartition_avant / 100.0
     ratio_ar = 1.0 - ratio_av
     
-    detente_av = (max_amort - min_amort) * ratio_av + min_amort
-    detente_ar = (max_amort - min_amort) * ratio_ar + min_amort
+    base = 0.5 * (max_amort - min_amort)
+    det_av = base * (ratio_av * 2) + min_amort
+    det_ar = base * (ratio_ar * 2) + min_amort
     
-    compression_av = detente_av * 0.60
-    compression_ar = detente_ar * 0.60
+    # Objectif
+    mult_obj = {"Circuit": 1.3, "Rallye": 0.4, "Tout terrain": 0.3, "Drift": 1.1}.get(objectif, 1.0)
+    det_av *= mult_obj; det_ar *= mult_obj
     
-    if biais_comportement == "survireur":
-        detente_av *= 1.15
-        compression_av *= 1.15
-        detente_ar *= 0.85
-        compression_ar *= 0.85
-    elif biais_comportement == "sous-vireur":
-        detente_av *= 0.85
-        compression_av *= 0.85
-        detente_ar *= 1.15
-        compression_ar *= 1.15
+    # Moteur
+    if type_moteur in ["V8", "V10", "V12", "W12", "W16", "Électrique"]:
+        det_av *= 1.15; det_ar *= 1.15
         
-    detente_av = max(min_amort, min(detente_av, max_amort))
-    detente_ar = max(min_amort, min(detente_ar, max_amort))
-    compression_av = max(min_amort, min(compression_av, max_amort))
-    compression_ar = max(min_amort, min(compression_ar, max_amort))
+    comp_av = det_av * 0.60
+    comp_ar = det_ar * 0.60
     
-    return round(detente_av, 1), round(detente_ar, 1), round(compression_av, 1), round(compression_ar, 1)
+    # Drift : Détente avant très dure pour transfert, compression arrière dure
+    if objectif == "Drift":
+        det_av = max_amort * 0.90
+        comp_ar = max_amort * 0.85
+        
+    det_av = max(min_amort, min(det_av, max_amort))
+    det_ar = max(min_amort, min(det_ar, max_amort))
+    comp_av = max(min_amort, min(comp_av, max_amort))
+    comp_ar = max(min_amort, min(comp_ar, max_amort))
+    
+    return round(det_av, 1), round(det_ar, 1), round(comp_av, 1), round(comp_ar, 1)
 
-def calculer_aero(min_av, max_av, min_ar, max_ar, type_circuit="equilibre", biais_comportement="neutre"):
-    if type_circuit == "vitesse":
-        base_av = min_av + (max_av - min_av) * 0.10
-        base_ar = min_ar + (max_ar - min_ar) * 0.20
-    elif type_circuit == "virage":
-        base_av = min_av + (max_av - min_av) * 0.90
-        base_ar = min_ar + (max_ar - min_ar) * 0.95
+def calculer_aero(min_av, max_av, min_ar, max_ar, objectif, biais_comportement):
+    if objectif == "Drag":
+        base_av = min_av; base_ar = min_ar
+    elif objectif == "Circuit":
+        base_av = max_av; base_ar = max_ar
+    elif objectif == "Drift":
+        base_av = min_av + (max_av - min_av) * 0.20
+        base_ar = min_ar + (max_ar - min_ar) * 0.80
     else: 
         base_av = min_av + (max_av - min_av) * 0.50
         base_ar = min_ar + (max_ar - min_ar) * 0.55
 
-    if biais_comportement == "survireur":
-        base_av *= 0.90
-        base_ar *= 1.15
+    if biais_comportement == "survireur" and objectif != "Drift":
+        base_av *= 0.90; base_ar *= 1.15
     elif biais_comportement == "sous-vireur":
-        base_av *= 1.15
-        base_ar *= 0.90
+        base_av *= 1.15; base_ar *= 0.90
 
-    final_av = max(min_av, min(base_av, max_av))
-    final_ar = max(min_ar, min(base_ar, max_ar))
-    return round(final_av, 0), round(final_ar, 0)
+    return round(max(min_av, min(base_av, max_av)), 0), round(max(min_ar, min(base_ar, max_ar)), 0)
 
-def calculer_freins(repartition_avant, biais_comportement="neutre", appui_aero="standard"):
+def calculer_freins(repartition_avant, biais_comportement, objectif, gomme):
     balance = repartition_avant - 2.0 
     pression = 100
-    if appui_aero == "fort":
-        pression += 15 
+    
+    if gomme in ["Slick", "Semi slick"]: pression += 20
+    if objectif == "Circuit": pression += 10
+    if objectif in ["Rallye", "Tout terrain"]: pression -= 15
         
     if biais_comportement == "survireur":
-        balance += 3.0 
-        pression -= 5
+        balance += 3.0; pression -= 5
     elif biais_comportement == "sous-vireur":
         balance -= 3.0 
         
-    balance = max(0.0, min(balance, 100.0))
-    pression = max(0, min(pression, 200))
-    
-    return round(balance, 0), round(pression, 0)
-
-def calculer_boite(type_circuit="equilibre", nb_vitesses=6):
-    if type_circuit == "vitesse":
-        pont = 2.80
-        r_1 = 2.80
-        r_n = 0.70
-    elif type_circuit == "virage":
-        pont = 3.80
-        r_1 = 3.20
-        r_n = 0.90
-    else:
-        pont = 3.30
-        r_1 = 3.00
-        r_n = 0.80
-
-    rapports = []
-    for i in range(nb_vitesses):
-        ratio = r_1 * ((r_n / r_1) ** (i / (nb_vitesses - 1)))
-        rapports.append(round(ratio, 2))
+    if objectif == "Drift":
+        balance = 45.0 # Puissance sur l'arrière pour initier
+        pression = 120
         
+    return round(max(0.0, min(balance, 100.0)), 0), round(max(0, min(pression, 200)), 0)
+
+def calculer_boite(objectif, transmission):
+    if objectif == "Drag": pont = 2.60; r_1 = 2.40; r_n = 0.60
+    elif objectif == "Drift": pont = 3.90; r_1 = 3.40; r_n = 1.00
+    elif objectif in ["Rallye", "Touge"]: pont = 4.10; r_1 = 3.20; r_n = 0.90
+    else: pont = 3.30; r_1 = 3.00; r_n = 0.80
+
+    rapports = [round(r_1 * ((r_n / r_1) ** (i / 5)), 2) for i in range(6)]
     return pont, rapports
 
 # =================================================================
 # 2. CONFIGURATION DE LA PAGE & DESIGN (THÈME CYAN)
 # =================================================================
+
 st.set_page_config(
     page_title="FH6 Tuner Studio",
     page_icon="🏎️",
@@ -222,19 +242,15 @@ st.markdown(
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,800;1,400&display=swap');
 
-/* ── Reset & root ───────────────────────── */
-html, body,
-[data-testid="stAppViewContainer"],
-.stApp {
+html, body, [data-testid="stAppViewContainer"], .stApp {
     background-color: #07090f !important;
     color: #c9d1e0 !important;
     font-family: 'Barlow Condensed', sans-serif !important;
 }
 
-[data-testid="stHeader"]      { background: transparent !important; }
-[data-testid="stToolbar"]     { display: none !important; }
-[data-testid="stDecoration"]  { display: none !important; }
-footer                        { display: none !important; }
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer { 
+    display: none !important; 
+}
 
 .block-container {
     padding-top: 1.8rem !important;
@@ -242,12 +258,10 @@ footer                        { display: none !important; }
     max-width: 100% !important;
 }
 
-/* ── Scrollbar ──────────────────────────── */
-::-webkit-scrollbar              { width: 5px; }
-::-webkit-scrollbar-track        { background: #07090f; }
-::-webkit-scrollbar-thumb        { background: #0ea5e9; border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #07090f; }
+::-webkit-scrollbar-thumb { background: #0ea5e9; border-radius: 3px; }
 
-/* ── Masthead ────────────────────────────── */
 .fh6-wordmark {
     font-family: 'Rajdhani', sans-serif;
     font-size: clamp(2rem, 4vw, 3.2rem);
@@ -286,16 +300,15 @@ footer                        { display: none !important; }
 }
 @keyframes heartbeat {
     0%,100% { opacity:1; transform:scale(1); }
-    50%      { opacity:.35; transform:scale(.85); }
+    50% { opacity:.35; transform:scale(.85); }
 }
 
-/* ── Section labels ─────────────────────── */
 .sec-label {
     display: flex;
     align-items: center;
     gap: 10px;
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.38em;
     text-transform: uppercase;
@@ -317,21 +330,6 @@ footer                        { display: none !important; }
     background: linear-gradient(90deg, #1c2233 0%, transparent 100%);
 }
 
-/* ── Group card ─────────────────────────── */
-.card {
-    background: #0c0f18;
-    border: 1px solid #161d2d;
-    border-top: 2px solid #0ea5e9;
-    border-radius: 5px;
-    padding: 1.1rem 1.4rem 1.4rem;
-    margin-bottom: 0.5rem;
-}
-.card-inner {
-    background: #10141f;
-    border: 1px solid #161d2d;
-    border-radius: 4px;
-    padding: 0.9rem 1.1rem;
-}
 .sub-lbl {
     font-size: 0.64rem;
     font-weight: 600;
@@ -341,65 +339,33 @@ footer                        { display: none !important; }
     margin-bottom: 0.55rem;
 }
 
-/* ── Number inputs ──────────────────────── */
-.stNumberInput > label {
+.stNumberInput > label, .stSelectbox > label, .stRadio > label {
     font-family: 'Barlow Condensed', sans-serif !important;
     font-size: 0.72rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.15em !important;
     text-transform: uppercase !important;
     color: #5a6880 !important;
-    margin-bottom: 2px !important;
 }
-.stNumberInput input {
+.stNumberInput input, .stSelectbox > div > div {
     background-color: #10141f !important;
     border: 1px solid #1c2538 !important;
     border-radius: 3px !important;
     color: #ffffff !important;
+}
+.stNumberInput input {
     font-family: 'Rajdhani', sans-serif !important;
     font-size: 1.15rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.04em !important;
 }
-.stNumberInput input:focus {
-    border-color: #0ea5e9 !important;
-    box-shadow: 0 0 0 1px rgba(14,165,233,.5) !important;
-}
-.stNumberInput [data-testid="stNumberInputStepDown"],
-.stNumberInput [data-testid="stNumberInputStepUp"] {
-    color: #3a4760 !important;
-}
-
-/* ── Selectbox ──────────────────────────── */
-.stSelectbox > label {
-    font-family: 'Barlow Condensed', sans-serif !important;
-    font-size: 0.72rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.15em !important;
-    text-transform: uppercase !important;
-    color: #5a6880 !important;
-}
 .stSelectbox > div > div {
-    background-color: #10141f !important;
-    border: 1px solid #1c2538 !important;
-    border-radius: 3px !important;
-    color: #ffffff !important;
     font-family: 'Barlow Condensed', sans-serif !important;
     font-size: 1rem !important;
 }
-.stSelectbox svg { fill: #5a6880 !important; }
-
-/* ── Radio buttons ──────────────────────── */
-.stRadio > label {
-    font-family: 'Barlow Condensed', sans-serif !important;
-    font-size: 0.72rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.15em !important;
-    text-transform: uppercase !important;
-    color: #5a6880 !important;
-}
-div[data-testid="stRadio"] > div {
-    gap: 6px !important;
+.stNumberInput input:focus {
+    border-color: #0ea5e9 !important;
+    box-shadow: 0 0 0 1px rgba(14,165,233,.5) !important;
 }
 div[data-testid="stRadio"] label span {
     font-family: 'Barlow Condensed', sans-serif !important;
@@ -409,7 +375,6 @@ div[data-testid="stRadio"] label span {
     color: #c9d1e0 !important;
 }
 
-/* ── Behaviour & Generate buttons ──────── */
 .stButton > button {
     background: #10141f !important;
     color: #7a8aa8 !important;
@@ -421,7 +386,6 @@ div[data-testid="stRadio"] label span {
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     padding: 0.65rem 1rem !important;
-    height: auto !important;
     min-height: 48px !important;
     transition: all 0.15s ease !important;
     width: 100% !important;
@@ -432,11 +396,7 @@ div[data-testid="stRadio"] label span {
     background: #14192a !important;
     box-shadow: inset 0 0 0 0 transparent, 0 0 14px rgba(14,165,233,.2) !important;
 }
-.stButton > button:active {
-    transform: translateY(1px) !important;
-}
 
-/* Generate — override via parent class trick */
 .generate-zone .stButton > button {
     background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
     color: #ffffff !important;
@@ -452,7 +412,6 @@ div[data-testid="stRadio"] label span {
     transform: translateY(-2px) !important;
 }
 
-/* ── Feedback / result box ──────────────── */
 .result-box {
     background: #0c0f18;
     border: 1px solid #0ea5e9;
@@ -499,14 +458,12 @@ div[data-testid="stRadio"] label span {
     letter-spacing: 0.04em;
 }
 
-/* ── Horizontal rule ────────────────────── */
 .fh6-hr {
     border: none;
     border-top: 1px solid #161d2d;
     margin: 1rem 0;
 }
 
-/* ── Selected-state chip (comportement) ─── */
 .sel-chip {
     display: inline-flex;
     align-items: center;
@@ -518,13 +475,9 @@ div[data-testid="stRadio"] label span {
     color: #0ea5e9;
     margin-top: 4px;
 }
-.sel-chip::before {
-    content: '▸';
-}
+.sel-chip::before { content: '▸'; }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # =================================================================
 # 3. INTERFACE UTILISATEUR
@@ -539,8 +492,7 @@ with col_head:
         """
         <p class="fh6-wordmark">⚙ FH6&nbsp;&nbsp;Tuner&nbsp;&nbsp;Studio</p>
         <p class="fh6-tagline">Performance Tuning System · Build Configuration Module</p>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True
     )
 with col_stat:
     st.markdown(
@@ -548,22 +500,17 @@ with col_stat:
         <div style="height:100%;display:flex;align-items:center;justify-content:flex-end;padding-top:.5rem;">
             <span class="fh6-status"><span class="pulse-dot"></span>System Online</span>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True
     )
 
 st.markdown('<div class="sec-label">01 &nbsp;— &nbsp;Config Build</div>', unsafe_allow_html=True)
 
 st.markdown('<p class="sub-lbl">Paramètres de base</p>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    puissance = st.number_input("Puissance (ch)", min_value=0, max_value=5000, value=450, step=10)
-with c2:
-    couple = st.number_input("Couple (Nm)", min_value=0, max_value=5000, value=580, step=10)
-with c3:
-    poids = st.number_input("Poids (kg)", min_value=300, max_value=5000, value=1350, step=10)
-with c4:
-    poids_avant = st.number_input("% Poids avant (%)", min_value=0.0, max_value=100.0, value=56.0, step=0.1)
+with c1: puissance = st.number_input("Puissance (ch)", min_value=0, max_value=5000, value=450, step=10)
+with c2: couple = st.number_input("Couple (Nm)", min_value=0, max_value=5000, value=580, step=10)
+with c3: poids = st.number_input("Poids (kg)", min_value=300, max_value=5000, value=1350, step=10)
+with c4: poids_avant = st.number_input("% Poids avant (%)", min_value=0.0, max_value=100.0, value=56.0, step=0.1)
 
 st.markdown('<hr class="fh6-hr">', unsafe_allow_html=True)
 
@@ -572,65 +519,54 @@ with col_aero:
     st.markdown('<p class="sub-lbl">🌬&nbsp; Aérodynamique</p>', unsafe_allow_html=True)
     a1, a2 = st.columns(2)
     with a1:
-        appui_av_min = st.number_input("Appui Av Min",  min_value=0.0, max_value=999.0, value=70.0,   step=1.0, key="aav_min")
-        appui_ar_min = st.number_input("Appui Ar Min",  min_value=0.0, max_value=999.0, value=100.0,   step=1.0, key="aar_min")
+        appui_av_min = st.number_input("Appui Av Min", min_value=0.0, max_value=999.0, value=70.0, step=1.0)
+        appui_ar_min = st.number_input("Appui Ar Min", min_value=0.0, max_value=999.0, value=100.0, step=1.0)
     with a2:
-        appui_av_max = st.number_input("Appui Av Max",  min_value=0.0, max_value=999.0, value=150.0, step=1.0, key="aav_max")
-        appui_ar_max = st.number_input("Appui Ar Max",  min_value=0.0, max_value=999.0, value=250.0, step=1.0, key="aar_max")
+        appui_av_max = st.number_input("Appui Av Max", min_value=0.0, max_value=999.0, value=150.0, step=1.0)
+        appui_ar_max = st.number_input("Appui Ar Max", min_value=0.0, max_value=999.0, value=250.0, step=1.0)
 
 with col_haut:
     st.markdown('<p class="sub-lbl">📏&nbsp; Hauteur de caisse</p>', unsafe_allow_html=True)
     h1, h2 = st.columns(2)
     with h1:
-        haut_av_min = st.number_input("Hauteur Av Min (mm)", min_value=0, max_value=500, value=50,  step=5, key="hav_min")
-        haut_ar_min = st.number_input("Hauteur Ar Min (mm)", min_value=0, max_value=500, value=55,  step=5, key="har_min")
+        haut_av_min = st.number_input("Hauteur Av Min (mm)", min_value=0, max_value=500, value=50, step=5)
+        haut_ar_min = st.number_input("Hauteur Ar Min (mm)", min_value=0, max_value=500, value=55, step=5)
     with h2:
-        haut_av_max = st.number_input("Hauteur Av Max (mm)", min_value=0, max_value=500, value=150, step=5, key="hav_max")
-        haut_ar_max = st.number_input("Hauteur Ar Max (mm)", min_value=0, max_value=500, value=160, step=5, key="har_max")
+        haut_av_max = st.number_input("Hauteur Av Max (mm)", min_value=0, max_value=500, value=150, step=5)
+        haut_ar_max = st.number_input("Hauteur Ar Max (mm)", min_value=0, max_value=500, value=160, step=5)
 
 st.markdown('<hr class="fh6-hr">', unsafe_allow_html=True)
 
 st.markdown('<p class="sub-lbl">Configuration mécanique</p>', unsafe_allow_html=True)
 m1, m2, m3 = st.columns(3)
-with m1:
-    motricite = st.radio("Motricité", ["RWD", "AWD", "FWD"], horizontal=True)
-with m2:
-    position_moteur = st.radio("Position moteur", ["Avant", "Centrale", "Arrière"], horizontal=True)
-with m3:
-    type_moteur = st.selectbox("Type de moteur", ["Électrique", "Ligne 3", "Rotatif", "Boxer 4", "Ligne 4", "Ligne 5", "Ligne 6", "Boxer 6", "V6", "V8", "V10", "V12", "W12", "W16"], index=8)
+with m1: motricite = st.radio("Motricité", ["RWD", "AWD", "FWD"], horizontal=True)
+with m2: position_moteur = st.radio("Position moteur", ["Avant", "Centrale", "Arrière"], horizontal=True)
+with m3: type_moteur = st.selectbox("Type de moteur", ["Électrique", "Rotatif", "Boxer 4", "Boxer 6", "Ligne 3", "Ligne 4", "Ligne 5", "Ligne 6", "V6", "V8", "V10", "V12", "W12", "W16"], index=8)
 
 g1, g2, _ = st.columns([4, 4, 2])
-with g1:
-    gomme = st.selectbox("Gomme / Pneu", ["Route", "Sport", "Semi slick", "Slick", "Rallye", "Tout terrain", "Neige", "Drift", "Drag"], index=1)
-with g2:
-    suspension = st.selectbox("Type de suspension", ["Street", "Sport", "Race", "Rallye", "Drift"], index=2)
+with g1: gomme = st.selectbox("Gomme / Pneu", ["Route", "Sport", "Semi slick", "Slick", "Rallye", "Neige", "Tout terrain", "Drift", "Drag"], index=1)
+with g2: suspension = st.selectbox("Type de suspension", ["Street", "Sport", "Circuit", "Rallye", "Drift"], index=2)
 
 st.markdown('<div class="sec-label">02 &nbsp;— &nbsp;Comportement souhaité</div>', unsafe_allow_html=True)
 b1, b2, b3 = st.columns(3)
 with b1:
-    if st.button("↰  SOUS-VIRAGE", key="btn_sv", use_container_width=True):
-        st.session_state.comportement = "Sous-virage"
-        st.rerun()
+    if st.button("↰ SOUS-VIRAGE", key="btn_sv", use_container_width=True): st.session_state.comportement = "Sous-virage"; st.rerun()
 with b2:
-    if st.button("⚖   NEUTRE", key="btn_neu", use_container_width=True):
-        st.session_state.comportement = "Neutre"
-        st.rerun()
+    if st.button("⚖ NEUTRE", key="btn_neu", use_container_width=True): st.session_state.comportement = "Neutre"; st.rerun()
 with b3:
-    if st.button("↱  SURVIRAGE", key="btn_sur", use_container_width=True):
-        st.session_state.comportement = "Survirage"
-        st.rerun()
+    if st.button("↱ SURVIRAGE", key="btn_sur", use_container_width=True): st.session_state.comportement = "Survirage"; st.rerun()
 
 _icons = {"Sous-virage": "🔻", "Neutre": "⚖️", "Survirage": "🔺"}
 st.markdown(f'<p class="sel-chip">Sélectionné : {_icons[st.session_state.comportement]} &nbsp;{st.session_state.comportement}</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="sec-label">03 &nbsp;— &nbsp;Objectif du réglage</div>', unsafe_allow_html=True)
 _objectifs = {
-    "🏎️  Circuit — Piste lisse, aéro max": "Circuit",
-    "⛰️  Touge — Montagne : Grip + sortie de courbe": "Touge",
-    "🌧️  Rallye — Surface mixte, souple": "Rallye",
-    "🪨  Tout terrain — Terrain accidenté + jump": "Tout terrain",
-    "🔥  Drift — Angle + Rotation": "Drift",
-    "⚡  Drag — Ligne droite": "Drag",
+    "🏎️ Circuit — Piste lisse, aéro max": "Circuit",
+    "⛰️ Touge — Montagne : Grip + sortie de courbe": "Touge",
+    "🌧️ Rallye — Surface mixte, souple": "Rallye",
+    "🪨 Tout terrain — Terrain accidenté + jump": "Tout terrain",
+    "🔥 Drift — Angle + Rotation": "Drift",
+    "⚡ Drag — Ligne droite": "Drag",
 }
 objectif_display = st.selectbox("Objectif", list(_objectifs.keys()), label_visibility="collapsed")
 objectif = _objectifs[objectif_display]
@@ -641,20 +577,17 @@ st.markdown('<div class="sec-label">04 &nbsp;— &nbsp;Générer</div>', unsafe_
 gen_l, gen_mid, gen_r = st.columns([1, 4, 1])
 with gen_mid:
     st.markdown('<div class="generate-zone">', unsafe_allow_html=True)
-    generate = st.button("⚙  GÉNÉRER LE RÉGLAGE", key="btn_gen", use_container_width=True)
+    generate = st.button("⚙ GÉNÉRER LE RÉGLAGE", key="btn_gen", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 # =================================================================
-# 4. EXÉCUTION & RÉSULTATS (C'est ce qui manquait)
+# 4. EXÉCUTION & RÉSULTATS
 # =================================================================
 if generate:
     params = {
         "Puissance": f"{puissance} ch", "Couple": f"{couple} Nm", "Poids total": f"{poids} kg", "Poids avant": f"{poids_avant} %",
-        "Appui Av": f"[{appui_av_min} → {appui_av_max}]", "Appui Ar": f"[{appui_ar_min} → {appui_ar_max}]",
-        "Hauteur Av": f"[{haut_av_min} → {haut_av_max} mm]", "Hauteur Ar": f"[{haut_ar_min} → {haut_ar_max} mm]",
         "Motricité": motricite, "Pos. moteur": position_moteur, "Type moteur": type_moteur,
-        "Gomme / Pneu": gomme, "Suspension": suspension, "Comportement": st.session_state.comportement, "Objectif": objectif,
+        "Gomme": gomme, "Suspension": suspension, "Comportement": st.session_state.comportement, "Objectif": objectif,
     }
 
     rows_html = "".join(f'<div class="result-row"><span class="result-key">{k}</span><span class="result-val">{v}</span></div>' for k, v in params.items())
@@ -662,10 +595,7 @@ if generate:
     st.markdown(
         f"""
         <div class="result-box">
-            <div class="result-title">
-                <span class="pulse-dot" style="display:inline-block;"></span>
-                &nbsp;Calcul en cours avec les paramètres :
-            </div>
+            <div class="result-title"><span class="pulse-dot" style="display:inline-block;"></span>&nbsp;Calcul en cours avec les paramètres :</div>
             <div class="result-grid">{rows_html}</div>
         </div>
         """, unsafe_allow_html=True
@@ -674,28 +604,22 @@ if generate:
     # Traduction UI -> Math
     map_comportement = {"Sous-virage": "sous-vireur", "Neutre": "neutre", "Survirage": "survireur"}
     math_comp = map_comportement.get(st.session_state.comportement, "neutre")
-    map_suspension = {"Street": "course", "Sport": "course", "Race": "course", "Rallye": "rallye", "Drift": "drift"}
-    math_susp = map_suspension.get(suspension, "course")
-    map_circuit = {"Circuit": "virage", "Touge": "equilibre", "Rallye": "equilibre", "Tout terrain": "equilibre", "Drift": "equilibre", "Drag": "vitesse"}
-    math_circ = map_circuit.get(objectif, "equilibre")
     math_aero = "fort" if objectif == "Circuit" else "standard"
-    nb_vitesses = 6
 
-    # Limites fixes Forza par défaut
     arb_min, arb_max = 1.0, 65.0
     ressort_min, ressort_max = 20.0, 200.0
     amort_min, amort_max = 1.0, 20.0
 
     # Lancement des calculs
-    arb_av, arb_ar = calculer_arb(poids_avant, arb_min, arb_max, arb_min, arb_max, motricite, math_comp)
-    res_av, res_ar = calculer_ressorts(poids_avant, ressort_min, ressort_max, ressort_min, ressort_max, math_comp, math_aero)
-    pneus_av, pneus_ar = calculer_pression_pneus(poids_avant, motricite)
-    diff_resultats = calculer_differentiel(motricite, math_comp)
-    geo_resultats = calculer_geometrie(math_susp, math_comp)
-    det_av, det_ar, comp_av, comp_ar = calculer_amortisseurs(poids_avant, amort_min, amort_max, math_comp)
-    aero_av, aero_ar = calculer_aero(appui_av_min, appui_av_max, appui_ar_min, appui_ar_max, math_circ, math_comp)
-    freins_bal, freins_pres = calculer_freins(poids_avant, math_comp, math_aero)
-    pont, rapports_boite = calculer_boite(math_circ, nb_vitesses)
+    arb_av, arb_ar = calculer_arb(poids_avant, arb_min, arb_max, arb_min, arb_max, motricite, math_comp, position_moteur, suspension)
+    res_av, res_ar = calculer_ressorts(poids_avant, ressort_min, ressort_max, ressort_min, ressort_max, math_comp, math_aero, position_moteur, type_moteur, suspension, objectif)
+    pneus_av, pneus_ar = calculer_pression_pneus(poids_avant, motricite, gomme, objectif)
+    diff_resultats = calculer_differentiel(motricite, math_comp, type_moteur, objectif)
+    geo_resultats = calculer_geometrie(suspension, gomme, objectif)
+    det_av, det_ar, comp_av, comp_ar = calculer_amortisseurs(poids_avant, amort_min, amort_max, math_comp, type_moteur, objectif)
+    aero_av, aero_ar = calculer_aero(appui_av_min, appui_av_max, appui_ar_min, appui_ar_max, objectif, math_comp)
+    freins_bal, freins_pres = calculer_freins(poids_avant, math_comp, objectif, gomme)
+    pont, rapports_boite = calculer_boite(objectif, motricite)
 
     # Affichage des onglets
     st.markdown('<div class="sec-label">05 &nbsp;— &nbsp;Réglage Optimal</div>', unsafe_allow_html=True)
